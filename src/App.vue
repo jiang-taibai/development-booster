@@ -1,23 +1,29 @@
 <template>
   <n-config-provider :hljs="hljs">
-    <router-view/>
+    <div>
+      <router-view/>
+      <check-for-updates-dialog/>
+    </div>
   </n-config-provider>
 </template>
 
 <script>
 import {NConfigProvider} from 'naive-ui'
-import {defineComponent} from 'vue'
+
+import {defineComponent, ref} from 'vue'
 import hljs from 'highlight.js/lib/core'
 import javascript from 'highlight.js/lib/languages/javascript'
 import bash from 'highlight.js/lib/languages/bash'
-
+import {CheckForUpdates} from "@/assets/js/CheckForUpdates";
+import CheckForUpdatesDialog from "@/components/dialog/CheckForUpdatesDialog.vue";
 
 hljs.registerLanguage('javascript', javascript)
 hljs.registerLanguage('bash', bash)
 
 export default defineComponent({
   components: {
-    NConfigProvider
+    CheckForUpdatesDialog,
+    NConfigProvider,
   },
   setup() {
 
@@ -27,7 +33,7 @@ export default defineComponent({
   },
   mounted() {
     this.$store.dispatch('loadDataFromLocalFile');
-  }
+  },
 })
 </script>
 

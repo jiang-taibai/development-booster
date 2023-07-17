@@ -19,7 +19,13 @@ module.exports = defineConfig({
                 win: {
                     icon: './public/favicon.ico'
                 },
-                productName: "",  //应用的名称
+                mac: {
+                    icon: './public/favicon.ico'
+                },
+                linux: {
+                    icon: './public/favicon.ico'
+                },
+                productName: "开发加速器 Development Booster",
             },
         }
     },

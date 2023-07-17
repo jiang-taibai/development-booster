@@ -38,7 +38,10 @@ export default {
         type: 'warning'
       });
     }
-  }
+  },
+  mounted() {
+
+  },
 }
 </script>
 

@@ -1,6 +1,6 @@
 'use strict'
 
-import {app, protocol, BrowserWindow, ipcMain} from 'electron'
+import {app, protocol, BrowserWindow, ipcMain, shell } from 'electron'
 import {createProtocol} from 'vue-cli-plugin-electron-builder/lib'
 import installExtension, {VUEJS3_DEVTOOLS} from 'electron-devtools-installer'
 
@@ -47,6 +47,11 @@ async function createWindow() {
         // Load the index.html when not in development
         win.loadURL('app://./index.html')
     }
+
+    // 监听从Vue.js渲染进程发送的事件，例如打开链接请求
+    ipcMain.on('open-external-link', (event, url) => {
+        shell.openExternal(url); // 使用默认浏览器打开链接
+    });
 }
 
 // Quit when all windows are closed.
