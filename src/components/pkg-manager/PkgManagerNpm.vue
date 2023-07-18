@@ -1,21 +1,32 @@
 <script>
 import Iconfont from "@/components/Iconfont.vue";
 import {
-  NInput, NButton, NCard, NSelect, NTooltip,
-  NSwitch, NCode, NButtonGroup, NSpin, NPopover,
-  NList, NListItem, NThing
+  NButton,
+  NButtonGroup,
+  NCard,
+  NCode,
+  NInput,
+  NList,
+  NListItem,
+  NPopover,
+  NSelect,
+  NSpin,
+  NSwitch,
+  NThing,
+  NTooltip
 } from 'naive-ui'
 
 import 'element-plus/es/components/notification/style/css'
 import {ElNotification} from 'element-plus'
-
-const {shell} = require('electron');
-const {exec} = require('child_process');
-
 import {h} from 'vue'
 
 import SemverUtil from "@/assets/js/SemverUtil"
 import SvgIconLoading from "@/components/svg-icon/SvgIconLoading.vue";
+
+const {shell, remote} = require('electron');
+const {exec} = require('child_process');
+
+import {NpmRegistries} from "@/assets/registry/npm";
 
 export default {
   name: 'PkgManagerNpm',
@@ -56,19 +67,7 @@ export default {
       detailDataChanged: false,
       // NPM数据是否正在同步
       detailDataSynchronizing: false,
-      detailRegistryList: [{
-        label: '(官方)https://registry.npmjs.org/',
-        value: 'https://registry.npmjs.org/',
-      }, {
-        label: '(阿里云镜像源)https://registry.npmmirror.com/',
-        value: 'https://registry.npmmirror.com/',
-      }, {
-        label: '(腾讯云镜像源)https://mirrors.cloud.tencent.com/npm/',
-        value: 'https://mirrors.cloud.tencent.com/npm/',
-      }, {
-        label: '(华为云镜像源)https://repo.huaweicloud.com/repository/npm/',
-        value: 'https://repo.huaweicloud.com/repository/npm/',
-      },],
+      detailRegistryList: NpmRegistries,
     }
   },
   methods: {
@@ -214,19 +213,17 @@ export default {
       }
     },
     modifyCache() {
-      this.$refs.npmCacheSelector.click();
-    },
-    handleCacheSelect(event) {
-      const selectedFiles = event.target.files;
-      if (selectedFiles.length === 1 && selectedFiles[0].webkitRelativePath === '') {
-        // 用户选择了一个文件夹
-        const folderPath = selectedFiles[0].path;
-        this.detailData.configurations.cache = folderPath;
-
-        this.detailDataChanged = true;
-      } else {
-        // 不做处理
-      }
+      remote.dialog.showOpenDialog({
+        properties: ['openDirectory'],
+        defaultPath: this.detailData.configurations.cache ? this.detailData.configurations.cache : '',
+      }).then(result => {
+        if (!result.canceled && result.filePaths.length > 0) {
+          this.detailData.configurations.cache = result.filePaths[0];
+          this.detailDataChanged = true;
+        }
+      }).catch(err => {
+        console.error('打开文件夹选择窗口时出错:', err);
+      });
     },
     // 确认修改npm配置
     confirmModification() {
@@ -321,14 +318,11 @@ export default {
       <div class="form-item">
         <div class="form-title">自动重载：</div>
         <div class="form-content">
-          <n-switch v-model:value="pkgData.reloadWhenOpen" @update:value="emitUpdate">
-            <template #checked>
-              是的，每次打开该页面都自动加载
-            </template>
-            <template #unchecked>
-              不，使用上一次加载的数据
-            </template>
-          </n-switch>
+          <div style="display: flex; align-items: center; gap: 8px; color: #666666">
+            <n-switch v-model:value="pkgData.reloadWhenOpen" @update:value="emitUpdate"/>
+            <span v-if="pkgData.reloadWhenOpen">是的，每次打开该页面都自动加载</span>
+            <span v-else>不，使用上一次加载的数据</span>
+          </div>
         </div>
         <div class="form-extra">
           <n-tooltip trigger="hover">
@@ -452,8 +446,6 @@ export default {
             <n-button @click="modifyCache" style="padding: 4px">
               <Iconfont name="&#xe856;"/>
             </n-button>
-            <input type="file" ref="npmCacheSelector" :multiple="false"
-                   @change="handleCacheSelect" webkitdirectory directory style="display: none;">
             <n-tooltip trigger="hover">
               <template #trigger>
                 <Iconfont class="tip-icon" :size="20" name="&#xe83f;"></Iconfont>
@@ -466,15 +458,12 @@ export default {
         <div class="form-item">
           <div class="form-long-title">默认同意：</div>
           <div class="form-content">
-            <n-switch v-model:value="detailData.configurations.yes"
-                      @update:value="detailDataChanged = true">
-              <template #checked>
-                是的，每次安装默认同意
-              </template>
-              <template #unchecked>
-                不，每次安装都需要我手动同意
-              </template>
-            </n-switch>
+            <div style="display: flex; align-items: center; gap: 8px; color: #666666">
+              <n-switch v-model:value="detailData.configurations.yes"
+                        @update:value="detailDataChanged = true"/>
+              <span v-if="detailData.configurations.yes">是的，每次安装默认同意</span>
+              <span v-else>不，每次安装都需要我手动同意</span>
+            </div>
           </div>
           <div class="form-extra">
             <n-tooltip trigger="hover">

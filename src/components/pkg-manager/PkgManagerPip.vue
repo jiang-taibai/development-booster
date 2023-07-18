@@ -397,14 +397,11 @@ export default {
       <div class="form-item">
         <div class="form-long-title">自动重载：</div>
         <div class="form-content">
-          <n-switch v-model:value="pkgData.reloadWhenOpen" @update:value="emitUpdate">
-            <template #checked>
-              是的，每次打开该页面都自动加载
-            </template>
-            <template #unchecked>
-              不，使用上一次加载的数据
-            </template>
-          </n-switch>
+          <div style="display: flex; align-items: center; gap: 8px; color: #666666">
+            <n-switch v-model:value="pkgData.reloadWhenOpen" @update:value="emitUpdate"/>
+            <span v-if="pkgData.reloadWhenOpen">是的，每次打开该页面都自动加载</span>
+            <span v-else>不，使用上一次加载的数据</span>
+          </div>
         </div>
         <div class="form-extra">
           <n-tooltip trigger="hover">

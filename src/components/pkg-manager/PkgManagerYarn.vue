@@ -17,6 +17,8 @@ import {h} from 'vue'
 import SemverUtil from "@/assets/js/SemverUtil"
 import SvgIconLoading from "@/components/svg-icon/SvgIconLoading.vue";
 
+import {YarnRegistries} from "@/assets/registry/yarn";
+
 export default {
   name: 'PkgManagerYarn',
   props: {
@@ -56,19 +58,7 @@ export default {
       detailDataChanged: false,
       // yarn数据是否正在同步
       detailDataSynchronizing: false,
-      detailRegistryList: [{
-        label: '(官方)https://registry.yarnpkg.com',
-        value: 'https://registry.yarnpkg.com',
-      }, {
-        label: '(阿里云镜像源)https://registry.npmmirror.com',
-        value: 'https://registry.npmmirror.com',
-      }, {
-        label: '(腾讯云镜像源)https://mirrors.cloud.tencent.com/npm/',
-        value: 'https://mirrors.cloud.tencent.com/npm/',
-      }, {
-        label: '(华为云镜像源)https://repo.huaweicloud.com/repository/npm/',
-        value: 'https://repo.huaweicloud.com/repository/npm/',
-      },],
+      detailRegistryList: YarnRegistries,
     }
   },
   methods: {
@@ -393,14 +383,11 @@ export default {
       <div class="form-item">
         <div class="form-title">自动重载：</div>
         <div class="form-content">
-          <n-switch v-model:value="pkgData.reloadWhenOpen" @update:value="emitUpdate">
-            <template #checked>
-              是的，每次打开该页面都自动加载
-            </template>
-            <template #unchecked>
-              不，使用上一次加载的数据
-            </template>
-          </n-switch>
+          <div style="display: flex; align-items: center; gap: 8px; color: #666666">
+            <n-switch v-model:value="pkgData.reloadWhenOpen" @update:value="emitUpdate"/>
+            <span v-if="pkgData.reloadWhenOpen">是的，每次打开该页面都自动加载</span>
+            <span v-else>不，使用上一次加载的数据</span>
+          </div>
         </div>
         <div class="form-extra">
           <n-tooltip trigger="hover">

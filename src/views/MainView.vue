@@ -108,35 +108,31 @@
 <script>
 import {
   NButton, NScrollbar, NModal,
-  NInput, NSelect, NCard, NTag,
-  NEmpty
+  NInput, NSelect, NCard, NEmpty
 } from 'naive-ui'
-import {ipcRenderer} from "electron";
 import 'element-plus/es/components/message/style/css'
 import 'element-plus/es/components/message-box/style/css'
 import {ElMessage, ElMessageBox} from "element-plus";
 
-import Iconfont from "@/components/Iconfont.vue";
-import SvgIconEmpty from "@/components/svg-icon/SvgIconEmpty.vue";
-
-import PkgManagerNpm from "@/components/pkg-manager/PkgManagerNpm.vue";
-import PkgManagerYarn from "@/components/pkg-manager/PkgManagerYarn.vue";
-import PkgManagerPnpm from "@/components/pkg-manager/PkgManagerPnpm.vue";
-import PkgManagerPip from "@/components/pkg-manager/PkgManagerPip.vue";
+const Iconfont = defineAsyncComponent(() => import("@/components/Iconfont.vue"));
+const PkgManagerNpm = defineAsyncComponent(() => import("@/components/pkg-manager/PkgManagerNpm.vue"));
+const PkgManagerYarn = defineAsyncComponent(() => import("@/components/pkg-manager/PkgManagerYarn.vue"));
+const PkgManagerPnpm = defineAsyncComponent(() => import("@/components/pkg-manager/PkgManagerPnpm.vue"));
+const PkgManagerPip = defineAsyncComponent(() => import("@/components/pkg-manager/PkgManagerPip.vue"));
+const PkgManagerNone = defineAsyncComponent(() => import("@/components/pkg-manager/PkgManagerNone.vue"));
+const ApplicationButtonGroup = defineAsyncComponent(() => import("@/components/ApplicationButtonGroup.vue"));
 
 import {IdGenerate} from "@/assets/js/Utils";
-import ApplicationButtonGroup from "@/components/ApplicationButtonGroup.vue";
-import PkgManagerNone from "@/components/pkg-manager/PkgManagerNone.vue";
+import {defineAsyncComponent} from "vue";
 
 export default {
   name: 'MainView',
   components: {
-    PkgManagerNone,
-    ApplicationButtonGroup,
     NInput, NButton, NScrollbar, NModal, NSelect, NCard,
-    ElMessageBox, ElMessage, NTag, NEmpty,
-    Iconfont, SvgIconEmpty,
-    PkgManagerNpm, PkgManagerYarn, PkgManagerPnpm, PkgManagerPip
+    ElMessageBox, ElMessage, NEmpty,
+    Iconfont, ApplicationButtonGroup,
+    PkgManagerNone, PkgManagerNpm, PkgManagerYarn,
+    PkgManagerPnpm, PkgManagerPip,
   },
   data() {
     return {

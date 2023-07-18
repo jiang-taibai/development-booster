@@ -33,17 +33,17 @@ export default defineComponent({
   data() {
     return {
       showUpdateModel: false,
-      showCheckUpdateFailModel: true,
+      showCheckUpdateFailModel: false,
 
       currentVersion: void 0,
       latestVersion: void 0,
       releaseNotes: void 0,
       assets: [],
       fileExample: {
-        id: 'c',
-        name: '现在就可下载哟.png',
+        id: void 0,
+        name: void 0,
         status: 'finished',
-        url: 'https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg'
+        url: void 0,
       }
     }
   },

@@ -11,7 +11,7 @@ const repo = 'development-booster';
 const apiUrl = `https://gitee.com/api/v5/repos/${username}/${repo}/releases/latest`;
 
 // 发起 API 请求，获取最新版本信息
-export const getLatestState = () => {
+const getLatestState = () => {
     return new Promise((resolve, reject) => {
         axios
             .get(apiUrl)

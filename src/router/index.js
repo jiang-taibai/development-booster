@@ -1,5 +1,7 @@
 import {createRouter, createWebHashHistory, createWebHistory} from 'vue-router'
+
 import MainView from "@/views/MainView.vue";
+// const MainView = () => import('@/views/MainView.vue');
 
 const routes = [
     {
