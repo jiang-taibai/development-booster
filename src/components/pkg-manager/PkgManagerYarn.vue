@@ -1,3 +1,176 @@
+<template>
+  <div id="main">
+
+    <n-card title="基本信息设置">
+      <!-- 备注 -->
+      <div class="form-item">
+        <div class="form-title">备注：</div>
+        <div class="form-content">
+          <n-input v-model:value="pkgData.note" type="text" placeholder="请输入备注"
+                   :disabled="!noteChangeable"/>
+        </div>
+        <div class="form-extra">
+          <n-button @click="modifyNote" style="padding: 4px">
+            <Iconfont v-if="!noteChangeable" name="&#xe83a;"></Iconfont>
+            <Iconfont v-else name="&#xe841;"></Iconfont>
+          </n-button>
+        </div>
+      </div>
+      <!-- yarn路径 -->
+      <div class="form-item">
+        <div class="form-title">yarn：</div>
+        <div class="form-content">
+          <n-popover trigger="hover" :delay="500"
+                     :disabled="pkgData.path.length === 0">
+            <template #trigger>
+              <n-input v-model:value="pkgData.path" type="text" placeholder="请选择yarn路径"
+                       :disabled="true"/>
+            </template>
+            <span>{{ pkgData.path }}</span>
+          </n-popover>
+        </div>
+        <div class="form-extra">
+          <n-button-group>
+            <n-button @click="modifyPath" :loading="detailDataLoading" style="padding: 7px">
+              <template #icon>
+                <Iconfont name="&#xe83d;"></Iconfont>
+              </template>
+            </n-button>
+            <n-button @click="loadPkgDetailData(pkgData.path, detailData.version)"
+                      :disabled="pkgData.path.length === 0"
+                      :loading="detailDataLoading || detailDataSynchronizing" style="padding: 7px">
+              <template #icon>
+                <Iconfont name="&#xe88a;"></Iconfont>
+              </template>
+            </n-button>
+          </n-button-group>
+          <input style="display: none" type="file" ref="pkgPathSelector"
+                 :multiple="false" @change="handlePkgPathSelect">
+        </div>
+      </div>
+      <!-- 启动时是否重新加载 -->
+      <div class="form-item">
+        <div class="form-title">自动重载：</div>
+        <div class="form-content">
+          <div style="display: flex; align-items: center; gap: 8px; color: #666666">
+            <n-switch v-model:value="pkgData.reloadWhenOpen" @update:value="emitUpdate"/>
+            <span v-if="pkgData.reloadWhenOpen">是的，每次打开该页面都自动加载</span>
+            <span v-else>不，使用上一次加载的数据</span>
+          </div>
+        </div>
+        <div class="form-extra">
+          <n-tooltip trigger="hover">
+            <template #trigger>
+              <Iconfont class="tip-icon" :size="20" name="&#xe83f;"></Iconfont>
+            </template>
+            打开该页面时，是否重新加载yarn的数据
+          </n-tooltip>
+        </div>
+      </div>
+    </n-card>
+
+    <n-card title="yarn 设置" style="margin-top: 8px">
+      <template #header-extra>
+        <n-button-group>
+          <n-button :disabled="!detailDataChanged || !detailDataLoaded || detailDataLoading || detailDataSynchronizing"
+                    :loading="detailDataSynchronizing"
+                    @click="confirmModification">
+            <template #icon>
+              <Iconfont name="&#xe866;"/>
+            </template>
+            保存
+          </n-button>
+          <n-button :disabled="pkgData.path.length === 0"
+                    :loading="detailDataLoading || detailDataSynchronizing"
+                    @click="loadPkgDetailData(pkgData.path, detailData.version)">
+            <template #icon>
+              <Iconfont name="&#xe88a;"/>
+            </template>
+            重载
+          </n-button>
+        </n-button-group>
+      </template>
+      <div class="mask-outer">
+        <div class="mask"
+             v-show="detailDataLoading
+             || (!detailDataLoaded && (pkgData.reloadWhenOpen || (!pkgData.reloadWhenOpen && !detailData.version)))
+             || detailDataSynchronizing">
+          <div class="mask-content" v-if="detailDataLoading">
+            <svg-icon-loading style="margin-right: 8px"/>
+            <span class="mask-text">正在载入数据中...</span>
+          </div>
+          <div class="mask-content" v-else-if="detailDataSynchronizing">
+            <svg-icon-loading style="margin-right: 8px"/>
+            <span class="mask-text">正在保存数据中...</span>
+          </div>
+          <div class="mask-content"
+               v-else-if="!detailDataLoaded && (pkgData.reloadWhenOpen || (!pkgData.reloadWhenOpen && !detailData.version))">
+            <Iconfont name="&#xe842;" style="margin-right: 8px"/>
+            <span class="mask-text">尚未选定yarn，请在基本信息设置中操作</span>
+          </div>
+        </div>
+        <!-- 镜像仓库 -->
+        <div class="form-item">
+          <div class="form-long-title">镜像仓库：</div>
+          <div class="form-content">
+            <n-popover trigger="hover" :delay="500" :disabled="detailData.configurations.registry.length === 0">
+              <template #trigger>
+                <n-select v-model:value="detailData.configurations.registry" filterable
+                          @update:value="detailDataChanged = true;"
+                          :options="detailRegistryList" :render-option="renderPkgRegistryOption"/>
+              </template>
+              <span>{{ detailData.configurations.registry }}</span>
+            </n-popover>
+          </div>
+          <div class="form-extra">
+            <n-tooltip trigger="hover">
+              <template #trigger>
+                <Iconfont class="tip-icon" :size="20" name="&#xe83e;"></Iconfont>
+              </template>
+              其他包镜像设置，请见下方"Yarn 高级设置"
+            </n-tooltip>
+          </div>
+        </div>
+
+      </div>
+    </n-card>
+
+    <n-card title="yarn 高级设置" style="margin-top: 8px">
+      <div class="mask-outer">
+        <div class="mask" v-show="pkgData.path.length === 0">
+          <div class="mask-content">
+            <Iconfont name="&#xe849;" style="margin-right: 8px"/>
+            <span class="mask-text">未选择yarn或路径有误</span>
+          </div>
+        </div>
+
+        <n-list hoverable clickable>
+          <!-- Electron镜像设置 -->
+          <n-list-item>
+            <n-thing class="code-outer">
+              <template #header>
+                Electron 镜像设置
+              </template>
+              <template #description>
+                使用yarn拉取electron时，需要使用特别的镜像源地址，否则会出现不可预期的错误。
+              </template>
+              <div class="code-block">
+                <n-code :code="pkgData.path + ' config set electron_mirror https://npmmirror.com/mirrors/electron/'"
+                        language="bash" word-wrap/>
+              </div>
+            </n-thing>
+          </n-list-item>
+          <n-list-item>
+            如有其他需要特殊镜像源，或特殊设置，欢迎提issue/pr
+          </n-list-item>
+        </n-list>
+
+      </div>
+    </n-card>
+
+  </div>
+</template>
+
 <script>
 import Iconfont from "@/components/Iconfont.vue";
 import {
@@ -182,7 +355,7 @@ export default {
       const commandString = commands.join(' && ');
 
       new Promise((resolve, reject) => {
-        exec(commandString, (error, stdout, stderr) => {
+        exec(commandString, { env: {} }, (error, stdout, stderr) => {
           if (error) {
             console.error(`Error executing commands: ${error}`);
             reject(error);
@@ -217,7 +390,7 @@ export default {
       const commandString = commands.join(' && ');
 
       new Promise((resolve, reject) => {
-        exec(commandString, (error, stdout, stderr) => {
+        exec(commandString, { env: {} }, (error, stdout, stderr) => {
           if (error) {
             console.error(`Error executing commands: ${error}`);
             reject(error);
@@ -274,13 +447,28 @@ export default {
     yarnSyncForVersion1() {
       this.detailDataSynchronizing = true;
       let that = this;
-      const commands = [
-        this.pkgData.path + ' config set registry ' + this.detailData.configurations.registry,
-      ];
+      const commands = [];
+      // 如果registry没有设置，就删除registry
+      if (!this.detailData.configurations.registry || this.detailData.configurations.registry.length === 0) {
+        commands.push(this.pkgData.path + ' config delete registry');
+      } else {
+        try {
+          const url = new URL(this.detailData.configurations.registry);
+          commands.push(this.pkgData.path + ' config set registry ' + this.detailData.configurations.registry);
+        } catch (e) {
+          ElNotification({
+            title: '错误',
+            message: '无效的registry',
+            type: 'warning',
+          });
+          this.detailDataSynchronizing = false;
+          return;
+        }
+      }
 
-      const commandString = commands.join(' && ');
+      const commandString = commands.join(' & ');
       new Promise((resolve, reject) => {
-        exec(commandString, (error, stdout, stderr) => {
+        exec(commandString, { env: {} }, (error, stdout, stderr) => {
           if (error) {
             console.error(`Error executing commands: ${error}`);
             reject(error);
@@ -295,13 +483,27 @@ export default {
     yarnSyncForVersion2and3() {
       this.detailDataSynchronizing = true;
       let that = this;
-      const commands = [
-        this.pkgData.path + ' config set npmRegistryServer ' + this.detailData.configurations.registry,
-      ];
-
-      const commandString = commands.join(' && ');
+      const commands = [];
+      // 如果registry没有设置，就删除registry
+      if (!this.detailData.configurations.registry || this.detailData.configurations.registry.length === 0) {
+        commands.push(this.pkgData.path + ' config delete npmRegistryServer');
+      } else {
+        try {
+          const url = new URL(this.detailData.configurations.registry);
+          commands.push(this.pkgData.path + ' config set npmRegistryServer ' + this.detailData.configurations.registry);
+        } catch (e) {
+          ElNotification({
+            title: '错误',
+            message: '无效的registry',
+            type: 'warning',
+          });
+          this.detailDataSynchronizing = false;
+          return;
+        }
+      }
+      const commandString = commands.join(' & ');
       new Promise((resolve, reject) => {
-        exec(commandString, (error, stdout, stderr) => {
+        exec(commandString, { env: {} }, (error, stdout, stderr) => {
           if (error) {
             console.error(`Error executing commands: ${error}`);
             reject(error);
@@ -328,179 +530,6 @@ export default {
   },
 }
 </script>
-
-<template>
-  <div id="main">
-
-    <n-card title="基本信息设置">
-      <!-- 备注 -->
-      <div class="form-item">
-        <div class="form-title">备注：</div>
-        <div class="form-content">
-          <n-input v-model:value="pkgData.note" type="text" placeholder="请输入备注"
-                   :disabled="!noteChangeable"/>
-        </div>
-        <div class="form-extra">
-          <n-button @click="modifyNote" style="padding: 4px">
-            <Iconfont v-if="!noteChangeable" name="&#xe83a;"></Iconfont>
-            <Iconfont v-else name="&#xe841;"></Iconfont>
-          </n-button>
-        </div>
-      </div>
-      <!-- yarn路径 -->
-      <div class="form-item">
-        <div class="form-title">yarn：</div>
-        <div class="form-content">
-          <n-popover trigger="hover" :delay="500"
-                     :disabled="pkgData.path.length === 0">
-            <template #trigger>
-              <n-input v-model:value="pkgData.path" type="text" placeholder="请选择yarn路径"
-                       :disabled="true"/>
-            </template>
-            <span>{{ pkgData.path }}</span>
-          </n-popover>
-        </div>
-        <div class="form-extra">
-          <n-button-group>
-            <n-button @click="modifyPath" :loading="detailDataLoading" style="padding: 7px">
-              <template #icon>
-                <Iconfont name="&#xe83d;"></Iconfont>
-              </template>
-            </n-button>
-            <n-button @click="loadPkgDetailData(pkgData.path, detailData.version)"
-                      :disabled="pkgData.path.length === 0"
-                      :loading="detailDataLoading || detailDataSynchronizing" style="padding: 7px">
-              <template #icon>
-                <Iconfont name="&#xe88a;"></Iconfont>
-              </template>
-            </n-button>
-          </n-button-group>
-          <input style="display: none" type="file" ref="pkgPathSelector"
-                 :multiple="false" @change="handlePkgPathSelect">
-        </div>
-      </div>
-      <!-- 启动时是否重新加载 -->
-      <div class="form-item">
-        <div class="form-title">自动重载：</div>
-        <div class="form-content">
-          <div style="display: flex; align-items: center; gap: 8px; color: #666666">
-            <n-switch v-model:value="pkgData.reloadWhenOpen" @update:value="emitUpdate"/>
-            <span v-if="pkgData.reloadWhenOpen">是的，每次打开该页面都自动加载</span>
-            <span v-else>不，使用上一次加载的数据</span>
-          </div>
-        </div>
-        <div class="form-extra">
-          <n-tooltip trigger="hover">
-            <template #trigger>
-              <Iconfont class="tip-icon" :size="20" name="&#xe83f;"></Iconfont>
-            </template>
-            打开该页面时，是否重新加载yarn的数据
-          </n-tooltip>
-        </div>
-      </div>
-    </n-card>
-
-    <n-card title="yarn 设置" style="margin-top: 8px">
-      <template #header-extra>
-        <n-button-group>
-          <n-button :disabled="!detailDataChanged || !detailDataLoaded || detailDataLoading || detailDataSynchronizing"
-                    :loading="detailDataSynchronizing"
-                    @click="confirmModification">
-            <template #icon>
-              <Iconfont name="&#xe866;"/>
-            </template>
-            保存
-          </n-button>
-          <n-button :disabled="pkgData.path.length === 0"
-                    :loading="detailDataLoading || detailDataSynchronizing"
-                    @click="loadPkgDetailData(pkgData.path, detailData.version)">
-            <template #icon>
-              <Iconfont name="&#xe88a;"/>
-            </template>
-            重载
-          </n-button>
-        </n-button-group>
-      </template>
-      <div class="mask-outer">
-        <div class="mask"
-             v-show="detailDataLoading
-             || (!detailDataLoaded && (pkgData.reloadWhenOpen || (!pkgData.reloadWhenOpen && !detailData.version)))
-             || detailDataSynchronizing">
-          <div class="mask-content" v-if="detailDataLoading">
-            <svg-icon-loading style="margin-right: 8px"/>
-            <span class="mask-text">正在载入数据中...</span>
-          </div>
-          <div class="mask-content" v-else-if="detailDataSynchronizing">
-            <svg-icon-loading style="margin-right: 8px"/>
-            <span class="mask-text">正在保存数据中...</span>
-          </div>
-          <div class="mask-content"
-               v-else-if="!detailDataLoaded && (pkgData.reloadWhenOpen || (!pkgData.reloadWhenOpen && !detailData.version))">
-            <Iconfont name="&#xe842;" style="margin-right: 8px"/>
-            <span class="mask-text">尚未选定yarn，请在基本信息设置中操作</span>
-          </div>
-        </div>
-        <!-- 镜像仓库 -->
-        <div class="form-item">
-          <div class="form-long-title">镜像仓库：</div>
-          <div class="form-content">
-            <n-popover trigger="hover" :delay="500" :disabled="detailData.configurations.registry.length === 0">
-              <template #trigger>
-                <n-select v-model:value="detailData.configurations.registry" filterable
-                          @update:value="detailDataChanged = true;"
-                          :options="detailRegistryList" :render-option="renderPkgRegistryOption"/>
-              </template>
-              <span>{{ detailData.configurations.registry }}</span>
-            </n-popover>
-          </div>
-          <div class="form-extra">
-            <n-tooltip trigger="hover">
-              <template #trigger>
-                <Iconfont class="tip-icon" :size="20" name="&#xe83e;"></Iconfont>
-              </template>
-              其他包镜像设置，请见下方"Yarn 高级设置"
-            </n-tooltip>
-          </div>
-        </div>
-
-      </div>
-    </n-card>
-
-    <n-card title="yarn 高级设置" style="margin-top: 8px">
-      <div class="mask-outer">
-        <div class="mask" v-show="pkgData.path.length === 0">
-          <div class="mask-content">
-            <Iconfont name="&#xe849;" style="margin-right: 8px"/>
-            <span class="mask-text">未选择yarn或路径有误</span>
-          </div>
-        </div>
-
-        <n-list hoverable clickable>
-          <!-- Electron镜像设置 -->
-          <n-list-item>
-            <n-thing class="code-outer">
-              <template #header>
-                Electron 镜像设置
-              </template>
-              <template #description>
-                使用yarn拉取electron时，需要使用特别的镜像源地址，否则会出现不可预期的错误。
-              </template>
-              <div class="code-block">
-                <n-code :code="pkgData.path + ' config set electron_mirror https://npmmirror.com/mirrors/electron/'"
-                        language="bash" word-wrap/>
-              </div>
-            </n-thing>
-          </n-list-item>
-          <n-list-item>
-            如有其他需要特殊镜像源，或特殊设置，欢迎提issue/pr
-          </n-list-item>
-        </n-list>
-
-      </div>
-    </n-card>
-
-  </div>
-</template>
 
 <style scoped>
 #main {

@@ -7,6 +7,12 @@
  * 5. 网易 PyPI镜像：https://mirrors.163.com/.help/pypi.html
  */
 
+export const PipRegistriesFromOfficial = [
+    {
+        "label": "PyPI官方镜像",
+        "value": "https://pypi.org/simple"
+    },
+]
 
 // 国内高校的开源镜像站
 export const PipRegistriesFromUniversity = [
@@ -105,6 +111,12 @@ export const PipRegistriesFromCompany = [
 ]
 
 export const PipRegistries = [
+    {
+        type: "group",
+        label: "官方源",
+        key: "official",
+        children: PipRegistriesFromOfficial
+    },
     {
         type: "group",
         label: "国内企业开源镜像站",

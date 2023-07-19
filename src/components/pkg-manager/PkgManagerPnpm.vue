@@ -1,266 +1,3 @@
-<script>
-import Iconfont from "@/components/Iconfont.vue";
-import {
-  NInput, NButton, NCard, NSelect, NTooltip,
-  NSwitch, NCode, NButtonGroup, NSpin, NPopover,
-  NList, NListItem, NThing
-} from 'naive-ui'
-
-import 'element-plus/es/components/notification/style/css'
-import {ElNotification} from 'element-plus'
-
-const {shell} = require('electron');
-const {exec} = require('child_process');
-
-import {h} from 'vue'
-
-import SemverUtil from "@/assets/js/SemverUtil"
-import SvgIconLoading from "@/components/svg-icon/SvgIconLoading.vue";
-import {remote} from "electron";
-
-import {PnpmRegistries} from "@/assets/registry/pnpm";
-
-export default {
-  name: 'PkgManagerPnpm',
-  props: {
-    data: {
-      type: Object,
-      required: true,
-    }
-  },
-  components: {
-    Notification, // ElementPlus
-    Iconfont, SvgIconLoading, // 自定义组件
-    NInput, NButton, NCard, NSelect,
-    NTooltip, NSwitch, NCode, NButtonGroup,
-    NSpin, NPopover, NList, NListItem, NThing, // NaiveUI
-  },
-  data() {
-    return {
-      noteChangeable: false,
-      pkgData: {
-        note: '',
-        path: '',
-        reloadWhenOpen: false,
-      },
-      detailData: {
-        version: '',
-        configurations: {
-          registry: '',   // 镜像仓库地址
-          cache: '',      // 缓存存放所在文件夹
-          yes: false,     // 是否自动确认
-          prefix: '',     // 全局安装路径
-        }
-      },
-      detailDataLoading: false,
-      // pnpm数据是否已经加载
-      detailDataLoaded: false,
-      // pnpm数据是否发生了变化
-      detailDataChanged: false,
-      // pnpm数据是否正在同步
-      detailDataSynchronizing: false,
-      detailRegistryList: PnpmRegistries,
-    }
-  },
-  methods: {
-    // 向父组件发送更新数据的事件
-    emitUpdate() {
-      this.$emit('update:data', {pkgData: this.pkgData, detailData: this.detailData})
-    },
-
-    // 修改备注
-    modifyNote() {
-      if (!this.noteChangeable) {
-        this.noteChangeable = true
-      } else {
-        // 同步到数据
-        this.emitUpdate();
-        this.noteChangeable = false
-      }
-    },
-    modifyPath() {
-      this.$refs.pkgPathSelector.click();
-    },
-    // 处理选择的pnpm路径
-    handlePkgPathSelect(event) {
-      const file = event.target.files[0];
-      if (!file) {
-        return;
-      }
-      this.detailDataLoading = true;
-
-      if (file.name !== "pnpm") {
-        ElNotification({
-          title: '错误',
-          message: '请选择pnpm文件',
-          type: 'warning',
-        });
-        this.detailDataLoading = false;
-        return;
-      }
-
-      this.verifyPnpm(file.path).then((version) => {
-        this.pkgData.path = file.path;
-        // 如果校验成功，那么
-        this.loadPnpmData(file.path)
-      }).catch((error) => {
-        ElNotification({
-          title: '错误',
-          message: error,
-          type: 'warning',
-        })
-      })
-
-    },
-    // 通过获取pnpm的版本来校验pnpm的路径是否正确
-    verifyPnpm(pnpmPath) {
-      return new Promise((resolve, reject) => {
-        let verified = false;
-        exec(pnpmPath + ' -v', (error, stdout, stderr) => {
-          let version = stdout.trim();   // 应当是SemVer格式的版本号
-          // 如果获取失败，或者校验version出不是SemVer格式
-          if (error) {
-            reject("无效的pnpm路径: " + error);
-          }
-          if (!SemverUtil.isValid(version)) {
-            reject('获取的pnpm版本号不是有效的SemVer格式：' + version);
-          }
-          resolve(version);
-        });
-      })
-    },
-    // 读取pnpm的配置
-    loadPnpmData(pnpmPath) {
-      if (!pnpmPath || pnpmPath.length === 0) {
-        ElNotification({
-          title: '错误',
-          message: '无效的pnpm路径',
-          type: 'warning',
-        });
-        return;
-      }
-      this.detailDataLoading = true;
-      this.detailDataLoaded = false;
-      const commands = [
-        pnpmPath + ' config get cache',
-        pnpmPath + ' config get registry',
-        pnpmPath + ' config get yes',
-        pnpmPath + ' -v',
-      ];
-
-      const commandString = commands.join(' && ');
-
-      new Promise((resolve, reject) => {
-        exec(commandString, (error, stdout, stderr) => {
-          if (error) {
-            console.error(`Error executing commands: ${error}`);
-            reject(error);
-          }
-          // console.log("commandString: " + commandString)
-          // console.log("error: " + error);
-          // console.log("stdout: " + stdout);
-          // console.log("stderr: " + stderr);
-          let configurations = stdout.split('\n');
-          this.detailData.configurations.cache = configurations[0];
-          this.detailData.configurations.registry = configurations[1];
-          this.detailData.configurations.yes = configurations[2] === "true";    // 类型为空值或者布尔值
-          this.detailData.version = configurations[3];
-
-          resolve();
-        });
-      }).then(() => {
-        this.detailDataLoading = false;
-        this.detailDataLoaded = true;
-        this.detailDataChanged = false;
-        this.emitUpdate();
-      }).catch((error) => {
-        ElNotification({
-          title: '错误',
-          message: error,
-          type: 'warning',
-        })
-        this.detailDataLoading = false;
-        this.detailDataChanged = true;
-        // this.detailDataLoaded = true;
-      })
-    },
-    // 自定义渲染选择器的选项
-    renderPnpmRegistryOption({node, option}) {
-      return h(NTooltip, {delay: 500}, {
-        trigger: () => node,
-        default: () => option.label
-      })
-    },
-
-    // 以下为pnpm的配置修改
-    modifyPrefix() {
-      this.$refs.pnpmPrefixSelector.click();
-    },
-    handlePrefixSelect(event) {
-      const selectedFiles = event.target.files;
-      if (selectedFiles.length === 1 && selectedFiles[0].webkitRelativePath === '') {
-        // 用户选择了一个文件夹
-        const folderPath = selectedFiles[0].path;
-        this.detailData.configurations.prefix = folderPath;
-
-        this.detailDataChanged = true;
-      } else {
-        // 不做处理
-      }
-    },
-    modifyCache() {
-      remote.dialog.showOpenDialog({
-        properties: ['openDirectory'],
-        defaultPath: this.detailData.configurations.cache ? this.detailData.configurations.cache : '',
-      }).then(result => {
-        if (!result.canceled && result.filePaths.length > 0) {
-          this.detailData.configurations.cache = result.filePaths[0];
-          this.detailDataChanged = true;
-        }
-      }).catch(err => {
-        console.error('打开文件夹选择窗口时出错:', err);
-      });
-    },
-    // 确认修改pnpm配置
-    confirmModification() {
-      this.detailDataSynchronizing = true;
-      let that = this;
-      const commands = [
-        this.pkgData.path + ' config set cache ' + this.detailData.configurations.cache,
-        this.pkgData.path + ' config set registry ' + this.detailData.configurations.registry,
-        this.pkgData.path + ' config set yes ' + this.detailData.configurations.yes,
-      ];
-
-      const commandString = commands.join(' && ');
-      new Promise((resolve, reject) => {
-        exec(commandString, (error, stdout, stderr) => {
-          if (error) {
-            console.error(`Error executing commands: ${error}`);
-            reject(error);
-          }
-          that.detailDataSynchronizing = false;
-          that.detailDataChanged = false;
-          that.emitUpdate();
-          resolve();
-        });
-      })
-    },
-
-  },
-  mounted() {
-    this.pkgData = JSON.parse(JSON.stringify(this.data.pkgData));
-    this.detailData = JSON.parse(JSON.stringify(this.data.detailData));
-    if (this.pkgData.path.length > 0) {
-      if (!this.pkgData.reloadWhenOpen && this.detailData.version.length > 0) {
-        this.detailDataLoaded = true;
-      } else if (this.pkgData.reloadWhenOpen) {
-        this.loadPnpmData(this.pkgData.path);
-      }
-    }
-  },
-}
-</script>
-
 <template>
   <div id="main">
 
@@ -476,6 +213,285 @@ export default {
 
   </div>
 </template>
+
+<script>
+import Iconfont from "@/components/Iconfont.vue";
+import {
+  NInput, NButton, NCard, NSelect, NTooltip,
+  NSwitch, NCode, NButtonGroup, NSpin, NPopover,
+  NList, NListItem, NThing
+} from 'naive-ui'
+
+import 'element-plus/es/components/notification/style/css'
+import {ElNotification} from 'element-plus'
+
+const {shell} = require('electron');
+const {exec} = require('child_process');
+
+import {h} from 'vue'
+
+import SemverUtil from "@/assets/js/SemverUtil"
+import SvgIconLoading from "@/components/svg-icon/SvgIconLoading.vue";
+import {remote} from "electron";
+
+import {PnpmRegistries} from "@/assets/registry/pnpm";
+
+export default {
+  name: 'PkgManagerPnpm',
+  props: {
+    data: {
+      type: Object,
+      required: true,
+    }
+  },
+  components: {
+    Notification, // ElementPlus
+    Iconfont, SvgIconLoading, // 自定义组件
+    NInput, NButton, NCard, NSelect,
+    NTooltip, NSwitch, NCode, NButtonGroup,
+    NSpin, NPopover, NList, NListItem, NThing, // NaiveUI
+  },
+  data() {
+    return {
+      noteChangeable: false,
+      pkgData: {
+        note: '',
+        path: '',
+        reloadWhenOpen: false,
+      },
+      detailData: {
+        version: '',
+        configurations: {
+          registry: '',   // 镜像仓库地址
+          cache: '',      // 缓存存放所在文件夹
+          yes: false,     // 是否自动确认
+          prefix: '',     // 全局安装路径
+        }
+      },
+      detailDataLoading: false,
+      // pnpm数据是否已经加载
+      detailDataLoaded: false,
+      // pnpm数据是否发生了变化
+      detailDataChanged: false,
+      // pnpm数据是否正在同步
+      detailDataSynchronizing: false,
+      detailRegistryList: PnpmRegistries,
+    }
+  },
+  methods: {
+    // 向父组件发送更新数据的事件
+    emitUpdate() {
+      this.$emit('update:data', {pkgData: this.pkgData, detailData: this.detailData})
+    },
+
+    // 修改备注
+    modifyNote() {
+      if (!this.noteChangeable) {
+        this.noteChangeable = true
+      } else {
+        // 同步到数据
+        this.emitUpdate();
+        this.noteChangeable = false
+      }
+    },
+    modifyPath() {
+      this.$refs.pkgPathSelector.click();
+    },
+    // 处理选择的pnpm路径
+    handlePkgPathSelect(event) {
+      const file = event.target.files[0];
+      if (!file) {
+        return;
+      }
+      this.detailDataLoading = true;
+
+      if (file.name !== "pnpm") {
+        ElNotification({
+          title: '错误',
+          message: '请选择pnpm文件',
+          type: 'warning',
+        });
+        this.detailDataLoading = false;
+        return;
+      }
+
+      this.verifyPnpm(file.path).then((version) => {
+        this.pkgData.path = file.path;
+        // 如果校验成功，那么
+        this.loadPnpmData(file.path)
+      }).catch((error) => {
+        ElNotification({
+          title: '错误',
+          message: error,
+          type: 'warning',
+        })
+      })
+
+    },
+    // 通过获取pnpm的版本来校验pnpm的路径是否正确
+    verifyPnpm(pnpmPath) {
+      return new Promise((resolve, reject) => {
+        let verified = false;
+        exec(pnpmPath + ' -v', (error, stdout, stderr) => {
+          let version = stdout.trim();   // 应当是SemVer格式的版本号
+          // 如果获取失败，或者校验version出不是SemVer格式
+          if (error) {
+            reject("无效的pnpm路径: " + error);
+          }
+          if (!SemverUtil.isValid(version)) {
+            reject('获取的pnpm版本号不是有效的SemVer格式：' + version);
+          }
+          resolve(version);
+        });
+      })
+    },
+    // 读取pnpm的配置
+    loadPnpmData(pnpmPath) {
+      if (!pnpmPath || pnpmPath.length === 0) {
+        ElNotification({
+          title: '错误',
+          message: '无效的pnpm路径',
+          type: 'warning',
+        });
+        return;
+      }
+      this.detailDataLoading = true;
+      this.detailDataLoaded = false;
+      const commands = [
+        pnpmPath + ' config get cache',
+        pnpmPath + ' config get registry',
+        pnpmPath + ' config get yes',
+        pnpmPath + ' -v',
+      ];
+
+      const commandString = commands.join(' & ');
+
+      new Promise((resolve, reject) => {
+        exec(commandString, { env: {} }, (error, stdout, stderr) => {
+          if (error) {
+            console.error(`Error executing commands: ${error}`);
+            reject(error);
+          }
+          // console.log("commandString: " + commandString)
+          // console.log("error: " + error);
+          // console.log("stdout: " + stdout);
+          // console.log("stderr: " + stderr);
+          let configurations = stdout.split('\n');
+          this.detailData.configurations.cache = configurations[0];
+          this.detailData.configurations.registry = configurations[1];
+          this.detailData.configurations.yes = configurations[2] === "true";    // 类型为空值或者布尔值
+          this.detailData.version = configurations[3];
+
+          resolve();
+        });
+      }).then(() => {
+        this.detailDataLoading = false;
+        this.detailDataLoaded = true;
+        this.detailDataChanged = false;
+        this.emitUpdate();
+      }).catch((error) => {
+        ElNotification({
+          title: '错误',
+          message: error,
+          type: 'warning',
+        })
+        this.detailDataLoading = false;
+        this.detailDataChanged = true;
+        // this.detailDataLoaded = true;
+      })
+    },
+    // 自定义渲染选择器的选项
+    renderPnpmRegistryOption({node, option}) {
+      return h(NTooltip, {delay: 500}, {
+        trigger: () => node,
+        default: () => option.label
+      })
+    },
+
+    // 以下为pnpm的配置修改
+    modifyPrefix() {
+      this.$refs.pnpmPrefixSelector.click();
+    },
+    handlePrefixSelect(event) {
+      const selectedFiles = event.target.files;
+      if (selectedFiles.length === 1 && selectedFiles[0].webkitRelativePath === '') {
+        // 用户选择了一个文件夹
+        const folderPath = selectedFiles[0].path;
+        this.detailData.configurations.prefix = folderPath;
+
+        this.detailDataChanged = true;
+      } else {
+        // 不做处理
+      }
+    },
+    modifyCache() {
+      remote.dialog.showOpenDialog({
+        properties: ['openDirectory'],
+        defaultPath: this.detailData.configurations.cache ? this.detailData.configurations.cache : '',
+      }).then(result => {
+        if (!result.canceled && result.filePaths.length > 0) {
+          this.detailData.configurations.cache = result.filePaths[0];
+          this.detailDataChanged = true;
+        }
+      }).catch(err => {
+        console.error('打开文件夹选择窗口时出错:', err);
+      });
+    },
+    // 确认修改pnpm配置
+    confirmModification() {
+      this.detailDataSynchronizing = true;
+      let that = this;
+      const commands = [
+        this.pkgData.path + ' config set cache ' + this.detailData.configurations.cache,
+        this.pkgData.path + ' config set yes ' + this.detailData.configurations.yes,
+      ];
+      // 如果没有设置registry，那么就清除registry
+      if (this.detailData.configurations.registry) {
+        try {
+          // 创建URL对象仅仅是为了验证registry是否是有效的URL，如果不是，那么就会抛出异常
+          const url = new URL(this.detailData.configurations.registry);
+          commands.push(this.pkgData.path + ' config set registry ' + this.detailData.configurations.registry)
+        } catch (error) {
+          ElNotification({
+            title: '错误',
+            message: '无效的registry',
+            type: 'warning',
+          });
+          that.detailDataSynchronizing = false;
+          return;
+        }
+      } else {
+        commands.push(this.pkgData.path + ' config delete registry')
+      }
+      const commandString = commands.join(' & ');
+      new Promise((resolve, reject) => {
+        exec(commandString, { env: {} }, (error, stdout, stderr) => {
+          if (error) {
+            console.error(`Error executing commands: ${error}`);
+            reject(error);
+          }
+          that.detailDataSynchronizing = false;
+          that.detailDataChanged = false;
+          that.emitUpdate();
+          resolve();
+        });
+      })
+    },
+
+  },
+  mounted() {
+    this.pkgData = JSON.parse(JSON.stringify(this.data.pkgData));
+    this.detailData = JSON.parse(JSON.stringify(this.data.detailData));
+    if (this.pkgData.path.length > 0) {
+      if (!this.pkgData.reloadWhenOpen && this.detailData.version.length > 0) {
+        this.detailDataLoaded = true;
+      } else if (this.pkgData.reloadWhenOpen) {
+        this.loadPnpmData(this.pkgData.path);
+      }
+    }
+  },
+}
+</script>
 
 <style scoped>
 #main {

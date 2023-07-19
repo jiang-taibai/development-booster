@@ -1,270 +1,3 @@
-<script>
-import Iconfont from "@/components/Iconfont.vue";
-import {
-  NButton,
-  NButtonGroup,
-  NCard,
-  NCode,
-  NInput,
-  NList,
-  NListItem,
-  NPopover,
-  NSelect,
-  NSpin,
-  NSwitch,
-  NThing,
-  NTooltip
-} from 'naive-ui'
-
-import 'element-plus/es/components/notification/style/css'
-import {ElNotification} from 'element-plus'
-import {h} from 'vue'
-
-import SemverUtil from "@/assets/js/SemverUtil"
-import SvgIconLoading from "@/components/svg-icon/SvgIconLoading.vue";
-
-const {shell, remote} = require('electron');
-const {exec} = require('child_process');
-
-import {NpmRegistries} from "@/assets/registry/npm";
-
-export default {
-  name: 'PkgManagerNpm',
-  props: {
-    data: {
-      type: Object,
-      required: true,
-    }
-  },
-  components: {
-    Notification, // ElementPlus
-    Iconfont, SvgIconLoading, // 自定义组件
-    NInput, NButton, NCard, NSelect,
-    NTooltip, NSwitch, NCode, NButtonGroup,
-    NSpin, NPopover, NList, NListItem, NThing, // NaiveUI
-  },
-  data() {
-    return {
-      noteChangeable: false,
-      pkgData: {
-        note: '',
-        path: '',
-        reloadWhenOpen: false,
-      },
-      detailData: {
-        version: '',
-        configurations: {
-          registry: '',   // 镜像仓库地址
-          cache: '',      // 缓存存放所在文件夹
-          yes: false,     // 是否自动确认
-          prefix: '',     // 全局安装路径
-        }
-      },
-      detailDataLoading: false,
-      // NPM数据是否已经加载
-      detailDataLoaded: false,
-      // NPM数据是否发生了变化
-      detailDataChanged: false,
-      // NPM数据是否正在同步
-      detailDataSynchronizing: false,
-      detailRegistryList: NpmRegistries,
-    }
-  },
-  methods: {
-    // 向父组件发送更新数据的事件
-    emitUpdate() {
-      this.$emit('update:data', {pkgData: this.pkgData, detailData: this.detailData})
-    },
-
-    // 修改备注
-    modifyNote() {
-      if (!this.noteChangeable) {
-        this.noteChangeable = true
-      } else {
-        // 同步到数据
-        this.emitUpdate();
-        this.noteChangeable = false
-      }
-    },
-    modifyPath() {
-      this.$refs.npmPathSelector.click();
-    },
-    // 处理选择的npm.cmd路径
-    handleNpmPathSelect(event) {
-      const file = event.target.files[0];
-      if (!file) {
-        return;
-      }
-      this.detailDataLoading = true;
-
-      if (file.name !== "npm") {
-        ElNotification({
-          title: '错误',
-          message: '请选择npm文件',
-          type: 'warning',
-        });
-        this.detailDataLoading = false;
-        return;
-      }
-
-      this.verifyNpm(file.path).then((version) => {
-        this.pkgData.path = file.path;
-        // 如果校验成功，那么
-        this.loadNpmData(file.path)
-      }).catch((error) => {
-        ElNotification({
-          title: '错误',
-          message: error,
-          type: 'warning',
-        })
-      })
-
-    },
-    // 通过获取npm的版本来校验npm的路径是否正确
-    verifyNpm(npmPath) {
-      return new Promise((resolve, reject) => {
-        let verified = false;
-        exec(npmPath + ' -v', (error, stdout, stderr) => {
-          let version = stdout.trim();   // 应当是SemVer格式的版本号
-          // 如果获取失败，或者校验version出不是SemVer格式
-          if (error) {
-            reject("无效的npm路径: " + error);
-          }
-          if (!SemverUtil.isValid(version)) {
-            reject('获取的npm版本号不是有效的SemVer格式：' + version);
-          }
-          resolve(version);
-        });
-      })
-    },
-    // 读取npm的配置
-    loadNpmData(npmPath) {
-      if (!npmPath || npmPath.length === 0) {
-        ElNotification({
-          title: '错误',
-          message: '无效的npm路径',
-          type: 'warning',
-        });
-        return;
-      }
-      this.detailDataLoading = true;
-      this.detailDataLoaded = false;
-      const commands = [
-        npmPath + ' config get cache',
-        npmPath + ' config get registry',
-        npmPath + ' config get yes',
-        npmPath + ' -v',
-      ];
-
-      const commandString = commands.join(' && ');
-
-      new Promise((resolve, reject) => {
-        exec(commandString, (error, stdout, stderr) => {
-          if (error) {
-            console.error(`Error executing commands: ${error}`);
-            reject(error);
-          }
-          let configurations = stdout.split('\n');
-          this.detailData.configurations.cache = configurations[0];
-          this.detailData.configurations.registry = configurations[1];
-          this.detailData.configurations.yes = configurations[2] === "true";    // 类型为空值或者布尔值
-          this.detailData.version = configurations[3];
-
-          resolve();
-        });
-      }).then(() => {
-        this.detailDataLoading = false;
-        this.detailDataLoaded = true;
-        this.detailDataChanged = false;
-        this.emitUpdate();
-      }).catch((error) => {
-        ElNotification({
-          title: '错误',
-          message: error,
-          type: 'warning',
-        })
-        this.detailDataLoading = false;
-        this.detailDataChanged = true;
-        // this.detailDataLoaded = true;
-      })
-    },
-    // 自定义渲染选择器的选项
-    renderNpmRegistryOption({node, option}) {
-      return h(NTooltip, {delay: 500}, {
-        trigger: () => node,
-        default: () => option.label
-      })
-    },
-
-    // 以下为npm的配置修改
-    modifyPrefix() {
-      this.$refs.npmPrefixSelector.click();
-    },
-    handlePrefixSelect(event) {
-      const selectedFiles = event.target.files;
-      if (selectedFiles.length === 1 && selectedFiles[0].webkitRelativePath === '') {
-        // 用户选择了一个文件夹
-        const folderPath = selectedFiles[0].path;
-        this.detailData.configurations.prefix = folderPath;
-
-        this.detailDataChanged = true;
-      } else {
-        // 不做处理
-      }
-    },
-    modifyCache() {
-      remote.dialog.showOpenDialog({
-        properties: ['openDirectory'],
-        defaultPath: this.detailData.configurations.cache ? this.detailData.configurations.cache : '',
-      }).then(result => {
-        if (!result.canceled && result.filePaths.length > 0) {
-          this.detailData.configurations.cache = result.filePaths[0];
-          this.detailDataChanged = true;
-        }
-      }).catch(err => {
-        console.error('打开文件夹选择窗口时出错:', err);
-      });
-    },
-    // 确认修改npm配置
-    confirmModification() {
-      this.detailDataSynchronizing = true;
-      let that = this;
-      const commands = [
-        this.pkgData.path + ' config set cache ' + this.detailData.configurations.cache,
-        this.pkgData.path + ' config set registry ' + this.detailData.configurations.registry,
-        this.pkgData.path + ' config set yes ' + this.detailData.configurations.yes,
-      ];
-
-      const commandString = commands.join(' && ');
-      new Promise((resolve, reject) => {
-        exec(commandString, (error, stdout, stderr) => {
-          if (error) {
-            console.error(`Error executing commands: ${error}`);
-            reject(error);
-          }
-          that.detailDataSynchronizing = false;
-          that.detailDataChanged = false;
-          that.emitUpdate();
-          resolve();
-        });
-      })
-    },
-
-  },
-  mounted() {
-    this.pkgData = JSON.parse(JSON.stringify(this.data.pkgData));
-    this.detailData = JSON.parse(JSON.stringify(this.data.detailData));
-    if (this.pkgData.path.length > 0) {
-      if (!this.pkgData.reloadWhenOpen && this.detailData.version.length > 0) {
-        this.detailDataLoaded = true;
-      } else if (this.pkgData.reloadWhenOpen) {
-        this.loadNpmData(this.pkgData.path);
-      }
-    }
-  },
-}
-</script>
-
 <template>
   <div id="main">
 
@@ -512,6 +245,295 @@ export default {
 
   </div>
 </template>
+
+<script>
+import Iconfont from "@/components/Iconfont.vue";
+import {
+  NButton,
+  NButtonGroup,
+  NCard,
+  NCode,
+  NInput,
+  NList,
+  NListItem,
+  NPopover,
+  NSelect,
+  NSpin,
+  NSwitch,
+  NThing,
+  NTooltip
+} from 'naive-ui'
+
+import 'element-plus/es/components/notification/style/css'
+import {ElNotification} from 'element-plus'
+import {h} from 'vue'
+
+import SemverUtil from "@/assets/js/SemverUtil"
+import SvgIconLoading from "@/components/svg-icon/SvgIconLoading.vue";
+
+const {shell, remote} = require('electron');
+const {exec, spawn} = require('child_process');
+const {execFile} = require('child_process');
+
+import {NpmRegistries} from "@/assets/registry/npm";
+
+export default {
+  name: 'PkgManagerNpm',
+  props: {
+    data: {
+      type: Object,
+      required: true,
+    }
+  },
+  components: {
+    Notification, // ElementPlus
+    Iconfont, SvgIconLoading, // 自定义组件
+    NInput, NButton, NCard, NSelect,
+    NTooltip, NSwitch, NCode, NButtonGroup,
+    NSpin, NPopover, NList, NListItem, NThing, // NaiveUI
+  },
+  data() {
+    return {
+      noteChangeable: false,
+      pkgData: {
+        note: '',
+        path: '',
+        reloadWhenOpen: false,
+      },
+      detailData: {
+        version: '',
+        configurations: {
+          registry: '',   // 镜像仓库地址
+          cache: '',      // 缓存存放所在文件夹
+          yes: false,     // 是否自动确认
+          prefix: '',     // 全局安装路径
+        }
+      },
+      detailDataLoading: false,
+      // NPM数据是否已经加载
+      detailDataLoaded: false,
+      // NPM数据是否发生了变化
+      detailDataChanged: false,
+      // NPM数据是否正在同步
+      detailDataSynchronizing: false,
+      detailRegistryList: NpmRegistries,
+    }
+  },
+  methods: {
+    // 向父组件发送更新数据的事件
+    emitUpdate() {
+      this.$emit('update:data', {pkgData: this.pkgData, detailData: this.detailData})
+    },
+    // 修改备注
+    modifyNote() {
+      if (!this.noteChangeable) {
+        this.noteChangeable = true
+      } else {
+        // 同步到数据
+        this.emitUpdate();
+        this.noteChangeable = false
+      }
+    },
+    modifyPath() {
+      this.$refs.npmPathSelector.click();
+    },
+    // 处理选择的npm.cmd路径
+    handleNpmPathSelect(event) {
+      const file = event.target.files[0];
+      if (!file) {
+        return;
+      }
+      this.detailDataLoading = true;
+
+      if (file.name !== "npm") {
+        ElNotification({
+          title: '错误',
+          message: '请选择npm文件',
+          type: 'warning',
+        });
+        this.detailDataLoading = false;
+        return;
+      }
+
+      this.verifyNpm(file.path).then((version) => {
+        this.pkgData.path = file.path;
+        this.detailData.version = version;
+        // 如果校验成功，那么
+        this.loadNpmData(file.path)
+      }).catch((error) => {
+        ElNotification({
+          title: '错误',
+          message: error,
+          type: 'warning',
+        })
+      })
+
+    },
+    // 通过获取npm的版本来校验npm的路径是否正确
+    verifyNpm(npmPath) {
+      return new Promise((resolve, reject) => {
+        let verified = false;
+        exec(npmPath + ' -v', (error, stdout, stderr) => {
+          let version = stdout.trim();   // 应当是SemVer格式的版本号
+          // 如果获取失败，或者校验version出不是SemVer格式
+          if (error) {
+            reject("无效的npm路径: " + error);
+          }
+          if (!SemverUtil.isValid(version)) {
+            reject('获取的npm版本号不是有效的SemVer格式：' + version);
+          }
+          resolve(version);
+        });
+      })
+    },
+    // 读取npm的配置
+    loadNpmData(npmPath) {
+      if (!npmPath || npmPath.length === 0) {
+        ElNotification({
+          title: '错误',
+          message: '无效的npm路径',
+          type: 'warning',
+        });
+        return;
+      }
+      this.detailDataLoading = true;
+      this.detailDataLoaded = false;
+      const commands = [
+        npmPath + ' config get cache',
+        npmPath + ' config get registry',
+        npmPath + ' config get yes',
+        npmPath + ' -v',
+      ];
+
+      const commandString = commands.join(' & ');
+
+      new Promise((resolve, reject) => {
+        exec(commandString, { env: {} }, (error, stdout, stderr) => {
+          // console.log("commandString: " + commandString)
+          // console.log("error: " + error);
+          // console.log("stdout: " + stdout);
+          // console.log("stderr: " + stderr);
+          if (error) {
+            console.error(`Error executing commands: ${error}`);
+            reject(error);
+          }
+          let configurations = stdout.split('\n');
+          this.detailData.configurations.cache = configurations[0];
+          this.detailData.configurations.registry = configurations[1];
+          this.detailData.configurations.yes = configurations[2] === "true";    // 类型为空值或者布尔值
+          this.detailData.version = configurations[3];
+
+          resolve();
+        });
+      }).then(() => {
+        this.detailDataLoading = false;
+        this.detailDataLoaded = true;
+        this.detailDataChanged = false;
+        this.emitUpdate();
+      }).catch((error) => {
+        ElNotification({
+          title: '错误',
+          message: error,
+          type: 'warning',
+        })
+        this.detailDataLoading = false;
+        this.detailDataChanged = true;
+        // this.detailDataLoaded = true;
+      })
+    },
+    // 自定义渲染选择器的选项
+    renderNpmRegistryOption({node, option}) {
+      return h(NTooltip, {delay: 500}, {
+        trigger: () => node,
+        default: () => option.label
+      })
+    },
+
+    // 以下为npm的配置修改
+    modifyPrefix() {
+      this.$refs.npmPrefixSelector.click();
+    },
+    handlePrefixSelect(event) {
+      const selectedFiles = event.target.files;
+      if (selectedFiles.length === 1 && selectedFiles[0].webkitRelativePath === '') {
+        // 用户选择了一个文件夹
+        const folderPath = selectedFiles[0].path;
+        this.detailData.configurations.prefix = folderPath;
+
+        this.detailDataChanged = true;
+      } else {
+        // 不做处理
+      }
+    },
+    modifyCache() {
+      remote.dialog.showOpenDialog({
+        properties: ['openDirectory'],
+        defaultPath: this.detailData.configurations.cache ? this.detailData.configurations.cache : '',
+      }).then(result => {
+        if (!result.canceled && result.filePaths.length > 0) {
+          this.detailData.configurations.cache = result.filePaths[0];
+          this.detailDataChanged = true;
+        }
+      }).catch(err => {
+        console.error('打开文件夹选择窗口时出错:', err);
+      });
+    },
+    // 确认修改npm配置
+    confirmModification() {
+      this.detailDataSynchronizing = true;
+      let that = this;
+      const commands = [
+        this.pkgData.path + ' config set cache ' + this.detailData.configurations.cache,
+        this.pkgData.path + ' config set yes ' + this.detailData.configurations.yes,
+      ];
+      // 如果没有设置registry，那么就清除registry
+      if (this.detailData.configurations.registry) {
+        try {
+          // 创建URL对象仅仅是为了验证registry是否是有效的URL，如果不是，那么就会抛出异常
+          const url = new URL(this.detailData.configurations.registry);
+          commands.push(this.pkgData.path + ' config set registry ' + this.detailData.configurations.registry)
+        } catch (error) {
+          ElNotification({
+            title: '错误',
+            message: '无效的registry',
+            type: 'warning',
+          });
+          that.detailDataSynchronizing = false;
+          return;
+        }
+      } else {
+        commands.push(this.pkgData.path + ' config delete registry')
+      }
+
+      const commandString = commands.join(' & ');
+      new Promise((resolve, reject) => {
+        exec(commandString, { env: {} }, (error, stdout, stderr) => {
+          if (error) {
+            console.error(`Error executing commands: ${error}`);
+            reject(error);
+          }
+          that.detailDataSynchronizing = false;
+          that.detailDataChanged = false;
+          that.emitUpdate();
+          resolve();
+        });
+      })
+    },
+
+  },
+  mounted() {
+    this.pkgData = JSON.parse(JSON.stringify(this.data.pkgData));
+    this.detailData = JSON.parse(JSON.stringify(this.data.detailData));
+    if (this.pkgData.path.length > 0) {
+      if (!this.pkgData.reloadWhenOpen && this.detailData.version.length > 0) {
+        this.detailDataLoaded = true;
+      } else if (this.pkgData.reloadWhenOpen) {
+        this.loadNpmData(this.pkgData.path);
+      }
+    }
+  },
+}
+</script>
 
 <style scoped>
 #main {

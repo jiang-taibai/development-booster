@@ -1,6 +1,6 @@
 'use strict'
 
-import {app, protocol, BrowserWindow, ipcMain, shell } from 'electron'
+import {app, protocol, BrowserWindow, ipcMain, shell, dialog} from 'electron'
 import {createProtocol} from 'vue-cli-plugin-electron-builder/lib'
 import installExtension, {VUEJS3_DEVTOOLS} from 'electron-devtools-installer'
 
@@ -52,6 +52,8 @@ async function createWindow() {
     ipcMain.on('open-external-link', (event, url) => {
         shell.openExternal(url); // 使用默认浏览器打开链接
     });
+
+
 }
 
 // Quit when all windows are closed.
@@ -109,3 +111,13 @@ if (isDevelopment) {
         })
     }
 }
+
+
+// ipc
+ipcMain.handle('get-app-data-path', (event) => {
+    return app.getPath('appData');
+})
+
+ipcMain.handle('show-message-box', (event, options) => {
+    return dialog.showMessageBox(options);
+})

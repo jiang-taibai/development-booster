@@ -114,6 +114,8 @@ import 'element-plus/es/components/message/style/css'
 import 'element-plus/es/components/message-box/style/css'
 import {ElMessage, ElMessageBox} from "element-plus";
 
+import {mapState, mapMutations} from 'vuex';
+
 const Iconfont = defineAsyncComponent(() => import("@/components/Iconfont.vue"));
 const PkgManagerNpm = defineAsyncComponent(() => import("@/components/pkg-manager/PkgManagerNpm.vue"));
 const PkgManagerYarn = defineAsyncComponent(() => import("@/components/pkg-manager/PkgManagerYarn.vue"));
@@ -145,20 +147,34 @@ export default {
       },
       allPkgManagerType: [
         {
-          label: 'npm',
-          value: 'npm',
+          type: 'group',
+          label: 'Node.js',
+          key: 'Node.js',
+          children: [
+            {
+              label: 'npm',
+              value: 'npm',
+            },
+            {
+              label: 'yarn',
+              value: 'yarn',
+            },
+            {
+              label: 'pnpm',
+              value: 'pnpm',
+            },
+          ]
         },
         {
-          label: 'yarn',
-          value: 'yarn',
-        },
-        {
-          label: 'pnpm',
-          value: 'pnpm',
-        },
-        {
-          label: 'pip',
-          value: 'pip',
+          type: 'group',
+          label: 'Python',
+          key: 'Python',
+          children: [
+            {
+              label: 'pip',
+              value: 'pip',
+            },
+          ]
         },
       ],
       defaultPkgManagerItemInfo: {
@@ -369,7 +385,17 @@ export default {
     }
   },
   computed: {},
-  watch: {},
+  watch: {
+    pkgManagerList: {
+      handler: function (val, oldVal) {
+        // vuex中加载数据有延迟，当数据发生变化时，如果当前未选中，则选中第一个包管理器
+        if (val.length > 0 && this.currentSelectedPkgIndex < 0) {
+          this.selectPkgManager(0)
+        }
+      },
+      deep: true,
+    },
+  },
 }
 </script>
 
