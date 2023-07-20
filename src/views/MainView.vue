@@ -19,15 +19,19 @@
       </div>
       <!-- 包管理器列表 -->
       <div class="pkg-list">
-        <div :class="{'pkg-item': true, 'pkg-item-selected': index===currentSelectedPkgIndex}"
-             v-for="(pkg, index) in pkgManagerList" :key="index"
-             @click="selectPkgManager(index)">
-          <span class="pkg-item-name">{{ pkg.name }}</span>
-          <span class="pkg-item-version" v-show="pkg.data.detailData.version">({{ pkg.data.detailData.version }})</span>
-          <span class="pkg-item-note" v-show="pkg.data.pkgData.note">
+        <n-scrollbar>
+          <div :class="{'pkg-item': true, 'pkg-item-selected': index===currentSelectedPkgIndex}"
+               v-for="(pkg, index) in pkgManagerList" :key="index"
+               @click="selectPkgManager(index)">
+            <span class="pkg-item-name">{{ pkg.name }}</span>
+            <span class="pkg-item-version" v-show="pkg.data.detailData.version">({{
+                pkg.data.detailData.version
+              }})</span>
+            <span class="pkg-item-note" v-show="pkg.data.pkgData.note">
             <br v-show="pkg.data.detailData.version"/>
             [{{ pkg.data.pkgData.note }}]</span>
-        </div>
+          </div>
+        </n-scrollbar>
         <!-- 当包管理器列表为空时，展示该节点 -->
         <div v-show="pkgManagerList.length===0"
              style="height:100%; display: flex; flex-direction: column; align-items: center; justify-content: center;">
