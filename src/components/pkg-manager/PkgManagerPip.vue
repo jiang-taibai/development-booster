@@ -63,7 +63,7 @@
             <template #trigger>
               <Iconfont class="tip-icon" :size="20" name="&#xe83f;"></Iconfont>
             </template>
-            打开该页面时，是否重新加载pnpm的数据
+            打开该页面时，是否重新加载 pip 的数据
           </n-tooltip>
         </div>
       </div>
@@ -531,10 +531,10 @@ export default {
       }
     },
     // 通过获取pip的版本来校验pip的路径是否正确
-    verifyPip(pnpmPath) {
+    verifyPip(pipPath) {
       return new Promise((resolve, reject) => {
         let verified = false;
-        exec(pnpmPath + ' -m pip -V', (error, stdout, stderr) => {
+        exec(this.autoCommandPrefix(pipPath) + ' -V', (error, stdout, stderr) => {
           // 在开发环境中的输出结果为：pip 23.1.2 from D:\Environments\Anaconda3\envs\py38\lib\site-packages\pip (python 3.8)
           let output = stdout.trim();
           // 如果获取失败，或者校验version出不是SemVer格式

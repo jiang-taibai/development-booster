@@ -125,6 +125,7 @@ const PkgManagerNpm = defineAsyncComponent(() => import("@/components/pkg-manage
 const PkgManagerYarn = defineAsyncComponent(() => import("@/components/pkg-manager/PkgManagerYarn.vue"));
 const PkgManagerPnpm = defineAsyncComponent(() => import("@/components/pkg-manager/PkgManagerPnpm.vue"));
 const PkgManagerPip = defineAsyncComponent(() => import("@/components/pkg-manager/PkgManagerPip.vue"));
+const PkgManagerConda = defineAsyncComponent(() => import("@/components/pkg-manager/PkgManagerConda.vue"));
 const PkgManagerNone = defineAsyncComponent(() => import("@/components/pkg-manager/PkgManagerNone.vue"));
 const ApplicationButtonGroup = defineAsyncComponent(() => import("@/components/ApplicationButtonGroup.vue"));
 
@@ -138,7 +139,7 @@ export default {
     ElMessageBox, ElMessage, NEmpty,
     Iconfont, ApplicationButtonGroup,
     PkgManagerNone, PkgManagerNpm, PkgManagerYarn,
-    PkgManagerPnpm, PkgManagerPip,
+    PkgManagerPnpm, PkgManagerPip, PkgManagerConda,
   },
   data() {
     return {
@@ -177,6 +178,10 @@ export default {
             {
               label: 'pip',
               value: 'pip',
+            },
+            {
+              label: 'conda',
+              value: 'conda',
             },
           ]
         },
@@ -270,6 +275,34 @@ export default {
                 global: {
                   majorRegistry: void 0,
                   minorRegistries: [],
+                },
+              }
+            },
+          },
+        },
+        conda: {
+          id: '',
+          type: "pkg-manager-conda",
+          name: "conda",
+          selected: false,
+          data: {
+            pkgData: {
+              note: '',
+              path: '',
+              reloadWhenOpen: false,
+            },
+            detailData: {
+              version: '',
+              configurations: {
+                system: {
+                  channels: [],
+                  customChannels: [],
+                  show_channel_urls: false,
+                },
+                env: {
+                  channels: [],
+                  customChannels: [],
+                  show_channel_urls: false,
                 },
               }
             },
