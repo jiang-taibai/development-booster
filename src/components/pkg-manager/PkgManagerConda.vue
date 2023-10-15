@@ -365,7 +365,7 @@ import {
 } from 'naive-ui'
 
 import 'element-plus/es/components/notification/style/css'
-import {ElMessageBox, ElNotification} from 'element-plus'
+import {ElNotification} from 'element-plus'
 
 const {exec} = require('child_process');
 
@@ -374,6 +374,7 @@ import {h} from 'vue'
 import SemverUtil from "@/assets/js/SemverUtil"
 import {CondaRegistries, CondaCloudRegistries, CondaCloudKeys} from "@/assets/registry/conda"
 import SvgIconLoading from "@/components/svg-icon/SvgIconLoading.vue";
+import {robustPath} from "@/assets/js/utils/repath";
 
 export default {
   name: 'PkgManagerConda',
@@ -479,6 +480,7 @@ export default {
           message: error,
           type: 'warning',
         })
+        this.detailDataLoading = false;
       })
 
     },
@@ -486,7 +488,7 @@ export default {
     verifyPkgManager(condaPath) {
       return new Promise((resolve, reject) => {
         let verified = false;
-        exec(condaPath + ' -V', (error, stdout, stderr) => {
+        exec(robustPath(condaPath) + ' -V', (error, stdout, stderr) => {
           // 在开发环境中的输出结果为：conda 23.1.0
           let output = stdout.trim();
           // 如果获取失败，或者校验version出不是SemVer格式
@@ -516,8 +518,8 @@ export default {
       let that = this;
       // let start = new Date().getTime();
       const commands = [
-        condaPath + ' config --get custom_channels default_channels channels show_channel_urls --json --system',
-        condaPath + ' config --get custom_channels default_channels channels show_channel_urls --json --env',
+        robustPath(condaPath) + ' config --get custom_channels default_channels channels show_channel_urls --json --system',
+        robustPath(condaPath) + ' config --get custom_channels default_channels channels show_channel_urls --json --env',
       ];
 
       const commandString = commands.join(' & ');
@@ -645,8 +647,8 @@ export default {
       this.detailDataSynchronizing = true;
       let that = this;
       const commands = [
-        `${this.pkgData.path} config --remove-key channels --remove-key custom_channels --remove-key show_channel_urls --remove-key default_channels --env`,
-        `${this.pkgData.path} config --remove-key channels --remove-key custom_channels --remove-key show_channel_urls --remove-key default_channels --system`,
+        `${robustPath(this.pkgData.path)} config --remove-key channels --remove-key custom_channels --remove-key show_channel_urls --remove-key default_channels --env`,
+        `${robustPath(this.pkgData.path)} config --remove-key channels --remove-key custom_channels --remove-key show_channel_urls --remove-key default_channels --system`,
       ];
       for (const level of ["system", "env"]) {
         // 添加 channels
@@ -658,7 +660,7 @@ export default {
         }
         commandList += ` --append channels defaults`
         if (commandList.length > 0) {
-          commands.push(`${this.pkgData.path} config ${commandList} --${level}`);
+          commands.push(`${robustPath(this.pkgData.path)} config ${commandList} --${level}`);
           commandList = ""
         }
 
@@ -673,7 +675,7 @@ export default {
           commandList += ` --set show_channel_urls false`
         }
         if (commandList.length > 0) {
-          commands.push(`${this.pkgData.path} config ${commandList} --${level}`);
+          commands.push(`${robustPath(this.pkgData.path)} config ${commandList} --${level}`);
         }
       }
 

@@ -276,6 +276,7 @@ const {exec, spawn} = require('child_process');
 const {execFile} = require('child_process');
 
 import {NpmRegistries} from "@/assets/registry/npm";
+import {robustPath} from "@/assets/js/utils/repath";
 
 export default {
   name: 'PkgManagerNpm',
@@ -366,6 +367,7 @@ export default {
           message: error,
           type: 'warning',
         })
+        this.detailDataLoading = false;
       })
 
     },
@@ -373,7 +375,7 @@ export default {
     verifyNpm(npmPath) {
       return new Promise((resolve, reject) => {
         let verified = false;
-        exec(npmPath + ' -v', (error, stdout, stderr) => {
+        exec(robustPath(npmPath) + ' -v', (error, stdout, stderr) => {
           let version = stdout.trim();   // 应当是SemVer格式的版本号
           // 如果获取失败，或者校验version出不是SemVer格式
           if (error) {
@@ -399,10 +401,10 @@ export default {
       this.detailDataLoading = true;
       this.detailDataLoaded = false;
       const commands = [
-        npmPath + ' config get cache',
-        npmPath + ' config get registry',
-        npmPath + ' config get yes',
-        npmPath + ' -v',
+        robustPath(npmPath) + ' config get cache',
+        robustPath(npmPath) + ' config get registry',
+        robustPath(npmPath) + ' config get yes',
+        robustPath(npmPath) + ' -v',
       ];
 
       const commandString = commands.join(' & ');
@@ -483,15 +485,15 @@ export default {
       this.detailDataSynchronizing = true;
       let that = this;
       const commands = [
-        this.pkgData.path + ' config set cache ' + this.detailData.configurations.cache,
-        this.pkgData.path + ' config set yes ' + this.detailData.configurations.yes,
+        robustPath(this.pkgData.path) + ' config set cache ' + this.detailData.configurations.cache,
+        robustPath(this.pkgData.path) + ' config set yes ' + this.detailData.configurations.yes,
       ];
       // 如果没有设置registry，那么就清除registry
       if (this.detailData.configurations.registry) {
         try {
           // 创建URL对象仅仅是为了验证registry是否是有效的URL，如果不是，那么就会抛出异常
           const url = new URL(this.detailData.configurations.registry);
-          commands.push(this.pkgData.path + ' config set registry ' + this.detailData.configurations.registry)
+          commands.push(robustPath(this.pkgData.path) + ' config set registry ' + this.detailData.configurations.registry)
         } catch (error) {
           ElNotification({
             title: '错误',
@@ -502,7 +504,7 @@ export default {
           return;
         }
       } else {
-        commands.push(this.pkgData.path + ' config delete registry')
+        commands.push(robustPath(this.pkgData.path) + ' config delete registry')
       }
 
       const commandString = commands.join(' & ');

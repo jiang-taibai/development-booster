@@ -409,6 +409,7 @@ import SemverUtil from "@/assets/js/SemverUtil"
 import PipConfigDebugResolver from "@/assets/js/PipConfigDebugResolver"
 import {PipRegistries} from "@/assets/registry/pip"
 import SvgIconLoading from "@/components/svg-icon/SvgIconLoading.vue";
+import {robustPath} from "@/assets/js/utils/repath";
 
 export default {
   name: 'PkgManagerPip',
@@ -517,6 +518,7 @@ export default {
           message: error,
           type: 'warning',
         })
+        this.detailDataLoading = false;
       })
 
     },
@@ -534,7 +536,7 @@ export default {
     verifyPip(pipPath) {
       return new Promise((resolve, reject) => {
         let verified = false;
-        exec(this.autoCommandPrefix(pipPath) + ' -V', (error, stdout, stderr) => {
+        exec(robustPath(this.autoCommandPrefix(pipPath)) + ' -V', (error, stdout, stderr) => {
           // 在开发环境中的输出结果为：pip 23.1.2 from D:\Environments\Anaconda3\envs\py38\lib\site-packages\pip (python 3.8)
           let output = stdout.trim();
           // 如果获取失败，或者校验version出不是SemVer格式
@@ -564,7 +566,7 @@ export default {
       let that = this;
       // let start = new Date().getTime();
       const commands = [
-        this.autoCommandPrefix(pipPath) + ' config debug'
+        robustPath(this.autoCommandPrefix(pipPath)) + ' config debug'
       ];
 
       const commandString = commands.join(' & ');
@@ -634,7 +636,7 @@ export default {
       this.detailDataSynchronizing = true;
       let that = this;
       const commands = [];
-      const executorPath = this.autoCommandPrefix(this.pkgData.path);
+      const executorPath = robustPath(this.autoCommandPrefix(this.pkgData.path));
       let scopes = ['site', 'user', 'global']
       for (const scope of scopes) {
         let majorRegistry = this.detailData.configurations[scope].majorRegistry;
@@ -716,7 +718,7 @@ export default {
       let that = this
       console.log(file)
       new Promise((resolve, reject) => {
-        let commandString = that.autoCommandPrefix(that.pkgData.path) + ' install ' + file.file.path;
+        let commandString = robustPath(that.autoCommandPrefix(that.pkgData.path)) + ' install ' + file.file.path;
         exec(commandString, (error, stdout, stderr) => {
           if (error) {
             console.error(`Error executing commands: ${error}\n${stderr}`);

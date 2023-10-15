@@ -191,6 +191,7 @@ import SemverUtil from "@/assets/js/SemverUtil"
 import SvgIconLoading from "@/components/svg-icon/SvgIconLoading.vue";
 
 import {YarnRegistries} from "@/assets/registry/yarn";
+import {robustPath} from "@/assets/js/utils/repath";
 
 export default {
   name: 'PkgManagerYarn',
@@ -288,7 +289,7 @@ export default {
     verifyYarn(pkgPath) {
       return new Promise((resolve, reject) => {
         let verified = false;
-        exec(pkgPath + ' -v', (error, stdout, stderr) => {
+        exec(robustPath(pkgPath) + ' -v', (error, stdout, stderr) => {
           let version = stdout.trim();   // 应当是SemVer格式的版本号
           // 如果获取失败，或者校验version出不是SemVer格式
           if (error) {
@@ -349,7 +350,7 @@ export default {
       this.detailDataLoading = true;
       this.detailDataLoaded = false;
       const commands = [
-        pkgPath + ' config get registry',
+        robustPath(pkgPath) + ' config get registry',
       ];
 
       const commandString = commands.join(' && ');
@@ -384,7 +385,7 @@ export default {
       this.detailDataLoading = true;
       this.detailDataLoaded = false;
       const commands = [
-        pkgPath + ' config get npmRegistryServer',
+        robustPath(pkgPath) + ' config get npmRegistryServer',
       ];
 
       const commandString = commands.join(' && ');
@@ -450,11 +451,11 @@ export default {
       const commands = [];
       // 如果registry没有设置，就删除registry
       if (!this.detailData.configurations.registry || this.detailData.configurations.registry.length === 0) {
-        commands.push(this.pkgData.path + ' config delete registry');
+        commands.push(robustPath(this.pkgData.path) + ' config delete registry');
       } else {
         try {
           const url = new URL(this.detailData.configurations.registry);
-          commands.push(this.pkgData.path + ' config set registry ' + this.detailData.configurations.registry);
+          commands.push(robustPath(this.pkgData.path) + ' config set registry ' + this.detailData.configurations.registry);
         } catch (e) {
           ElNotification({
             title: '错误',
@@ -486,11 +487,11 @@ export default {
       const commands = [];
       // 如果registry没有设置，就删除registry
       if (!this.detailData.configurations.registry || this.detailData.configurations.registry.length === 0) {
-        commands.push(this.pkgData.path + ' config delete npmRegistryServer');
+        commands.push(robustPath(this.pkgData.path) + ' config delete npmRegistryServer');
       } else {
         try {
           const url = new URL(this.detailData.configurations.registry);
-          commands.push(this.pkgData.path + ' config set npmRegistryServer ' + this.detailData.configurations.registry);
+          commands.push(robustPath(this.pkgData.path) + ' config set npmRegistryServer ' + this.detailData.configurations.registry);
         } catch (e) {
           ElNotification({
             title: '错误',

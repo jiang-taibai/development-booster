@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-const CurrentVersion = 'v1.0.1';
+const CurrentVersion = 'v1.1.1';
 
 // 仓库的用户名和仓库名
 const username = 'Jiang-TaiBai';
@@ -13,17 +13,17 @@ const apiUrl = `https://gitee.com/api/v5/repos/${username}/${repo}/releases/late
 // 发起 API 请求，获取最新版本信息
 const getLatestState = () => {
     return new Promise((resolve, reject) => {
-        // axios
-        //     .get(apiUrl)
-        //     .then((response) => {
-        //         console.log(response)
-        //         resolve(response.data);
-        //     })
-        //     .catch((error) => {
-        //         console.error('Error:', error.message);
-        //         reject(error);
-        //     });
-        resolve(versionData_CJAXICAXNCIUNSZXCKAWSD);
+        axios
+            .get(apiUrl)
+            .then((response) => {
+                console.log(response)
+                resolve(response.data);
+            })
+            .catch((error) => {
+                console.error('Error:', error.message);
+                reject(error);
+            });
+        // resolve(versionData_CJAXICAXNCIUNSZXCKAWSD);
     })
 
 }
